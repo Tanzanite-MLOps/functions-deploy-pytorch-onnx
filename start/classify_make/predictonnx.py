@@ -1,18 +1,16 @@
-import numpy as np    # we're going to use numpy to process input and output data
-import onnxruntime    # to inference ONNX models, we use the ONNX Runtime
-import onnx
-from onnx import numpy_helper
-from urllib.request import urlopen
 import json
-import time
-
 import logging
 import os
 import sys
+import time
 from datetime import datetime
+from urllib.request import urlopen
 
+import numpy as np  # we're going to use numpy to process input and output data
+import onnxruntime  # to inference ONNX models, we use the ONNX Runtime
 # display images in notebook
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageOps
+
 
 def load_labels(path):
     with open(path) as f:
@@ -20,16 +18,17 @@ def load_labels(path):
     return np.asarray(data)
 
 # Run the model on the backend
-d=os.path.dirname(os.path.abspath(__file__))
-modelfile=os.path.join(d , 'model.onnx')
-labelfile=os.path.join(d , 'labels.json')
+START_DIR=os.path.dirname(os.path.abspath(__file__))
+labelfile=os.path.join(START_DIR , 'labels.json')
+model_file = os.path.join(START_DIR, "make_classifier.onnx")
 
-session = onnxruntime.InferenceSession(modelfile, None)
+session = onnxruntime.InferenceSession(model_file, None)
 
 # get the name of the first input of the model
 input_name = session.get_inputs()[0].name  
 
 labels = load_labels(labelfile)
+
 
 def preprocess(input_data):
     # convert the input data into the float32 input
@@ -43,24 +42,41 @@ def preprocess(input_data):
         norm_img_data[i,:,:] = (img_data[i,:,:]/255 - mean_vec[i]) / stddev_vec[i]
 
     #add batch channel
-    norm_img_data = norm_img_data.reshape(1,3,224, 224).astype('float32')
+    norm_img_data = norm_img_data.reshape(1,3,240, 240).astype('float32')
     return norm_img_data
+
 
 def softmax(x):
     x = x.reshape(-1)
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0)
 
+
 def postprocess(result):
     return softmax(np.array(result)).tolist()
 
-def predict_image_from_url(image_url):
+
+def predict_image_from_url(image_url, crop=None):
+    """if crop provided it should be a list [center_x,center_y, width, height]. ALl normalised to [0,1]"""
+    print("received request!")
     with urlopen(image_url) as testImage:
         image = Image.open(testImage)
+    print("Loaded image")
 
-    imnew=ImageOps.fit(image, (224,224))
+    width, height = image.size
+    if crop is not None:
+        l, r = crop[0] - crop[2]/2, crop[0] + crop[2]/2
+        d, u = crop[1] + crop[3]/2, crop[1] - crop[3]/2
+        l, r, d, u = l * width, r * width, d * height, u * height
+        imnew = image.crop((l, u, r, d))
+        logging.info("cropping image " + repr(image.size) + " to " + repr(imnew.size))
+
+    image_size = 240
+    imnew=ImageOps.fit(image, (image_size, image_size))  # loaded as (x,y, 3)
+    logging.info("resizing image to: " + repr(imnew.size))
 
     image_data = np.array(imnew).transpose(2, 0, 1)
+    logging.info("image shape: " + repr(image_data.shape))  # (3,x,y)
     input_data = preprocess(image_data)
 
     start = time.time()
@@ -74,8 +90,9 @@ def predict_image_from_url(image_url):
     response = {
             'created': datetime.utcnow().isoformat(),
             'prediction': labels[idx],
-            'latency': inference_time,
-            'confidence': res[idx]
+            'inference_time': inference_time,
+            'confidence': res[idx],
+            'cropped': crop is not None
     }
     logging.info(f'returning {response}')
     return response
