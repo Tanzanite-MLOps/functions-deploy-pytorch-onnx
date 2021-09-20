@@ -1,4 +1,5 @@
 This is a package to deploy the yoloV5 pytorch object-detection model into an Azure FunctionsApp. 
+the model will download itself from the internet. You can select the model size in yolo.py. increase size for more accuracy
 
 The function requires the query param "img" which is a URL to an image to be segmented. It will return a list of vehicles identified
 

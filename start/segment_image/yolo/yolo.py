@@ -4,6 +4,13 @@ from typing import Tuple
 
 import torch
 
+SMALL = 'yolov5s'
+MEDIUM = 'yolov5m'
+LARGE = 'yolov5l'
+XL = 'yolov5x'
+
+YOLO_SIZE = SMALL  # switch to a larger size for more performance
+
 logging.info('loading yolo model')
 model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
 logging.info('loaded yolo model')

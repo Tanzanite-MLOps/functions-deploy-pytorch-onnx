@@ -1,4 +1,5 @@
 This package is for deployment of a vehicle recognition model which is in the ONNX file format - into an Azure functionApp
+The onnx file is available on Azure in the vrmartifacts file share resource
 
 The function requires the query param "img" which is a URL to an image to be segmented
 
