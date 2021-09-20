@@ -20,7 +20,7 @@ def load_labels(path):
 # Run the model on the backend
 START_DIR=os.path.dirname(os.path.abspath(__file__))
 labelfile=os.path.join(START_DIR , 'labels.json')
-model_file = os.path.join(START_DIR, "make_classifier.onnx")
+model_file = os.path.join(START_DIR, "model.onnx")
 
 session = onnxruntime.InferenceSession(model_file, None)
 
